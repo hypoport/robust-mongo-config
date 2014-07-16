@@ -18,6 +18,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class MongoTemplateWithRetry extends MongoTemplate {
+
   private static final Logger LOG = Logger.getLogger(MongoTemplateWithRetry.class.getName());
 
   static {
@@ -44,11 +45,13 @@ public class MongoTemplateWithRetry extends MongoTemplate {
     Assert.notNull(callback);
 
     try {
-      final DBCollection collection = getAndPrepareCollection(getDb(), collectionName);
+      final DBCollection collection = getAndPreparedCollection(getDb(), collectionName);
       if (retryEnabled) {
         return Retry.withRetry(() -> callback.doInCollection(collection));
       }
-      return callback.doInCollection(collection);
+      else {
+        return callback.doInCollection(collection);
+      }
     }
     catch (RuntimeException e) {
       throw potentiallyConvertRuntimeException(e);
@@ -71,7 +74,7 @@ public class MongoTemplateWithRetry extends MongoTemplate {
     }
   }
 
-  private DBCollection getAndPrepareCollection(DB db, String collectionName) {
+  private DBCollection getAndPreparedCollection(DB db, String collectionName) {
     try {
       DBCollection collection = db.getCollection(collectionName);
       prepareCollection(collection);
@@ -142,7 +145,10 @@ public class MongoTemplateWithRetry extends MongoTemplate {
     }
 
     private static void sleep() {
-      try { Thread.sleep(RETRY_SLEEP_TIME_PER_INTERVAL); } catch (InterruptedException e) { /* go on */ }
+      try {
+        Thread.sleep(RETRY_SLEEP_TIME_PER_INTERVAL);
+      }
+      catch (InterruptedException e) { /* go on */ }
     }
 
     static boolean shouldRetry(DateTime requestStartTime) {
@@ -150,6 +156,7 @@ public class MongoTemplateWithRetry extends MongoTemplate {
     }
 
     public static interface DatabaseAction<T> {
+
       T perform();
     }
   }
