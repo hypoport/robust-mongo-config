@@ -17,7 +17,7 @@ import static java.lang.Thread.sleep;
 import static org.fest.assertions.Assertions.assertThat;
 
 @ContextConfiguration(classes = {PropertiesConfiguration.class, MongoConfiguration.class})
-public class JustARepositoryTest extends AbstractTestNGSpringContextTests {
+public class RepositoryTest extends AbstractTestNGSpringContextTests {
 
   @Inject
   @Named(value = "justARepository")
@@ -29,8 +29,11 @@ public class JustARepositoryTest extends AbstractTestNGSpringContextTests {
     repository.deleteAll();
   }
 
+  /**
+   * Manually kill the mongo primary in you replication set.
+   */
   @Test
-  public void make_Stress_single() throws ExecutionException, InterruptedException {
+  public void long_running_insertion_test() throws ExecutionException, InterruptedException {
     for (int i = 1; i <= 10000; i++) {
       SomeEntity entity = new SomeEntity();
       entity.setNumber(i);

@@ -23,6 +23,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class MongoTemplateWithRetry extends MongoTemplate {
+
   private static final Logger LOG = Logger.getLogger(MongoTemplateWithRetry.class.getName());
 
   public static long MAX_RETRY_TIME_IN_MILLIS = 1000 * 60 * 1; // 1 Minute

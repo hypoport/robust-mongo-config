@@ -4,7 +4,6 @@ import com.mongodb.Mongo;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
 import com.mongodb.ReadPreference;
-import com.mongodb.WriteConcern;
 import de.hypoport.mongo.template.MongoTemplateWithRetry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +19,7 @@ import javax.inject.Inject;
 import java.net.UnknownHostException;
 
 import static com.mongodb.MongoClientOptions.builder;
+import static com.mongodb.WriteConcern.ACKNOWLEDGED;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Configuration
@@ -46,7 +46,7 @@ public class MongoConfiguration extends AbstractMongoConfiguration {
         .connectionsPerHost(100)
         .threadsAllowedToBlockForConnectionMultiplier(50)
         .readPreference(ReadPreference.primaryPreferred())
-        .writeConcern(WriteConcern.SAFE)
+        .writeConcern(ACKNOWLEDGED)
     ));
   }
 
