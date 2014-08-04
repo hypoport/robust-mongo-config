@@ -9,8 +9,11 @@ import de.hypoport.mongo.template.MongoTemplateWithRetry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.support.PersistenceExceptionTranslator;
+import org.springframework.data.mongodb.MongoDbFactory;
 import org.springframework.data.mongodb.config.AbstractMongoConfiguration;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.SimpleMongoDbFactory;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 
 import javax.inject.Inject;
@@ -50,10 +53,21 @@ public class MongoConfiguration extends AbstractMongoConfiguration {
   @Override
   @Bean
   public MongoTemplate mongoTemplate() throws Exception {
-    MongoTemplateWithRetry mongoTemplateWithRetry = new MongoTemplateWithRetry(mongo, getDatabaseName());
+    MongoTemplateWithRetry mongoTemplateWithRetry = new MongoTemplateWithRetry(mongoDbFactory(), mappingMongoConverter());
     mongoTemplateWithRetry.setRetryEnabled(true);
     mongoTemplateWithRetry.logMongoWarnings(false);
     return mongoTemplateWithRetry;
+  }
+
+  @Override
+  @Bean
+  public MongoDbFactory mongoDbFactory() {
+    return new SimpleMongoDbFactory(mongo, getDatabaseName(), getUserCredentials(), getAuthenticationDatabaseName()) {
+      @Override
+      public PersistenceExceptionTranslator getExceptionTranslator() {
+        return MongoTemplateWithRetry.getExceptionTranslator();
+      }
+    };
   }
 }
 

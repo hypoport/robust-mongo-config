@@ -1,17 +1,22 @@
 package de.hypoport.mongo.template;
 
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
+import com.mongodb.DBObject;
 import com.mongodb.Mongo;
 import com.mongodb.MongoException;
 import com.mongodb.MongoTimeoutException;
 import com.mongodb.WriteConcernException;
 import org.apache.commons.lang3.StringUtils;
 import org.joda.time.DateTime;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.support.PersistenceExceptionTranslator;
+import org.springframework.data.mongodb.MongoDbFactory;
 import org.springframework.data.mongodb.core.CollectionCallback;
 import org.springframework.data.mongodb.core.DbCallback;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoExceptionTranslator;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.convert.MongoConverter;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.util.Assert;
 
 import java.util.logging.Level;
@@ -20,16 +25,23 @@ import java.util.logging.Logger;
 public class MongoTemplateWithRetry extends MongoTemplate {
   private static final Logger LOG = Logger.getLogger(MongoTemplateWithRetry.class.getName());
 
+  public static long MAX_RETRY_TIME_IN_MILLIS = 1000 * 60 * 1; // 1 Minute
+  public static long RETRY_SLEEP_TIME_PER_INTERVAL = 1000;
+
   static {
     java.util.logging.Logger.getLogger("com.mongodb").setLevel(java.util.logging.Level.SEVERE);
   }
 
-  private final MongoExceptionTranslator exceptionTranslator = new MongoExceptionTranslator();
   private boolean retryEnabled = true;
 
   public MongoTemplateWithRetry(Mongo mongo, String databaseName) {
     super(mongo, databaseName);
   }
+
+  public MongoTemplateWithRetry(MongoDbFactory dbFactory, MongoConverter mongoConverter) {
+    super(dbFactory, mongoConverter);
+  }
+
 
   public void setRetryEnabled(boolean retryEnabled) {
     this.retryEnabled = retryEnabled;
@@ -39,118 +51,118 @@ public class MongoTemplateWithRetry extends MongoTemplate {
     java.util.logging.Logger.getLogger("com.mongodb").setLevel(show ? Level.WARNING : java.util.logging.Level.SEVERE);
   }
 
+  // Overridden retryable database actions
   @Override
   public <T> T execute(final String collectionName, final CollectionCallback<T> callback) {
     Assert.notNull(callback);
-
-    try {
-      final DBCollection collection = getAndPrepareCollection(getDb(), collectionName);
-      if (retryEnabled) {
-        return Retry.withRetry(() -> callback.doInCollection(collection));
-      }
-      return callback.doInCollection(collection);
-    }
-    catch (RuntimeException e) {
-      throw potentiallyConvertRuntimeException(e);
-    }
+    return retry().databaseAction(() -> MongoTemplateWithRetry.super.execute(collectionName, callback));
   }
 
   @Override
   public <T> T execute(final DbCallback<T> action) {
     Assert.notNull(action);
-
-    try {
-      final DB db = this.getDb();
-      if (retryEnabled) {
-        return Retry.withRetry(() -> action.doInDB(db));
-      }
-      return action.doInDB(db);
-    }
-    catch (RuntimeException e) {
-      throw potentiallyConvertRuntimeException(e);
-    }
+    return retry().databaseAction(() -> MongoTemplateWithRetry.super.execute(action));
   }
 
-  private DBCollection getAndPrepareCollection(DB db, String collectionName) {
-    try {
-      DBCollection collection = db.getCollection(collectionName);
-      prepareCollection(collection);
-      return collection;
-    }
-    catch (RuntimeException e) {
-      throw potentiallyConvertRuntimeException(e);
-    }
+  @Override
+  protected <T> T doFindAndModify(String collectionName, DBObject query, DBObject fields, DBObject sort, Class<T> entityClass, Update update, FindAndModifyOptions options) {
+    return retry().databaseAction(() -> MongoTemplateWithRetry.super.doFindAndModify(collectionName, query, fields, sort, entityClass, update, options));
   }
 
-  private RuntimeException potentiallyConvertRuntimeException(RuntimeException ex) {
-    RuntimeException resolved = this.exceptionTranslator.translateExceptionIfPossible(ex);
-    return resolved == null ? ex : resolved;
+  @Override
+  protected <T> T doFindAndRemove(String collectionName, DBObject query, DBObject fields, DBObject sort, Class<T> entityClass) {
+    return retry().databaseAction(() -> MongoTemplateWithRetry.super.doFindAndRemove(collectionName, query, fields, sort, entityClass));
   }
 
-  private static class Retry {
+  @Override
+  protected <T> T doFindOne(String collectionName, DBObject query, DBObject fields, Class<T> entityClass) {
+    return retry().databaseAction(() -> MongoTemplateWithRetry.super.doFindOne(collectionName, query, fields, entityClass));
+  }
 
-    public static long MAX_RETRY_TIME_IN_MILLIS = 1000 * 60 * 1; // 1 Minute
-    public static int RETRY_SLEEP_TIME_PER_INTERVAL = 1000;
+  public Retry retry() {
+    return new Retry();
+  }
 
-    private static <T> T withRetry(DatabaseAction<T> databaseAction) {
+  private class Retry {
+
+    private <T> T databaseAction(DatabaseAction<T> action) {
       DateTime requestStartTime = new DateTime();
-      MongoException lastException;
+      RuntimeException lastException;
       do {
         try {
-          return databaseAction.perform();
+          return action.perform();
         }
-        catch (MongoException.Network ex) {
-          lastException = ex;
-          handleFailoverError("Network issue: " + ex.getMessage());
-        }
-        catch (WriteConcernException ex) {
-          String err = ex.getCommandResult().get("err").toString();
-          if ("not master".equals(err)) {
-            lastException = ex;
-            handleFailoverError("No master in replica set found");
-          }
-          else {
-            throw ex;
-          }
-        }
-        catch (MongoTimeoutException ex) {
-          if (StringUtils.startsWith(ex.getMessage(), "Timed out while waiting for a server")) {
-            lastException = ex;
-            handleFailoverError("Timed out while waiting for a master server");
-          }
-          else {
-            throw ex;
-          }
-        }
-        catch (MongoException ex) {
-          if (StringUtils.startsWith(ex.getMessage(), "No replica set members available")) {
-            lastException = ex;
-            handleFailoverError("No replica set members available");
-          }
-          else {
-            throw ex;
-          }
+        catch (RetrieableDataAccessException retrieable) {
+          lastException = retrieable;
+          LOG.info(retrieable.getMessage());
+          sleep();
         }
       } while (shouldRetry(requestStartTime));
 
       throw lastException;
     }
 
-    private static void handleFailoverError(String errorMessage) {
-      LOG.info(errorMessage);
-      sleep();
-    }
-
-    private static void sleep() {
+    private  void sleep() {
       try { Thread.sleep(RETRY_SLEEP_TIME_PER_INTERVAL); } catch (InterruptedException e) { /* go on */ }
     }
 
-    static boolean shouldRetry(DateTime requestStartTime) {
-      return requestStartTime.plus(MAX_RETRY_TIME_IN_MILLIS).isAfterNow();
+    private boolean shouldRetry(DateTime requestStartTime) {
+      return retryEnabled && requestStartTime.plus(MAX_RETRY_TIME_IN_MILLIS).isAfterNow();
+    }
+  }
+
+  public static interface DatabaseAction<T> {
+    T perform();
+  }
+
+  public static PersistenceExceptionTranslator getExceptionTranslator() {
+    MongoExceptionTranslator translator = new MongoExceptionTranslator();
+
+    return new PersistenceExceptionTranslator() {
+      @Override
+      public DataAccessException translateExceptionIfPossible(RuntimeException e) {
+        try {
+          throw e;
+        }
+
+        // Handle master/slave failover dependent exceptions
+        catch (MongoException.Network ex) {
+          return new RetrieableDataAccessException("Network issue: " + ex.getMessage(), ex);
+        }
+
+        catch (WriteConcernException ex) {
+          String err = ex.getCommandResult().get("err").toString();
+          if ("not master".equals(err)) {
+            return new RetrieableDataAccessException("No master in replica set found", ex);
+          }
+        }
+
+        catch (MongoTimeoutException ex) {
+          if (StringUtils.startsWith(ex.getMessage(), "Timed out while waiting for a server")) {
+            return new RetrieableDataAccessException("Timed out while waiting for a master server", ex);
+          }
+        }
+
+        catch (MongoException ex) {
+          if (StringUtils.startsWith(ex.getMessage(), "No replica set members available")) {
+            return new RetrieableDataAccessException("No replica set members available", ex);
+          }
+        }
+
+        // Other exceptions will be translated and thrown
+        return translator.translateExceptionIfPossible(e);
+      }
+    };
+  }
+
+  static class RetrieableDataAccessException extends DataAccessException {
+
+    public RetrieableDataAccessException(String msg) {
+      super(msg);
     }
 
-    public static interface DatabaseAction<T> {
-      T perform();
+    public RetrieableDataAccessException(String msg, Throwable cause) {
+      super(msg, cause);
     }
   }
 }
