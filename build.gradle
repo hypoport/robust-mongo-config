@@ -2,8 +2,6 @@ project.ext {
   groupId = 'de.hypoport'
   artifactId = 'robust-mongo-config'
   version = '1.0'
-  nexusUrl = 'http://nexus-beta.hypoport.local/nexus/content/repositories/europace2'
-  artifactDownloadUrl = "${project.ext.nexusUrl}/de/hypoport/ep2/${artifactId}/${project.ext.version}/${artifactId}-${project.ext.version}.zip"
 }
 
 apply plugin: 'java'
