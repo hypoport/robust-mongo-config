@@ -98,8 +98,13 @@ public class MongoTemplateWithRetry extends MongoTemplate {
           LOG.info(retrieable.getMessage());
           sleep();
         }
+        catch (RuntimeException th) {
+          lastException = th;
+          throw th;
+        }
       } while (shouldRetry(requestStartTime));
 
+      LOG.throwing(MongoTemplateWithRetry.class.getSimpleName(), "databaseAction", lastException);
       throw lastException;
     }
 

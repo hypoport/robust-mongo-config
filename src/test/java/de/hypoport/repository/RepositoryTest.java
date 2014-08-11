@@ -33,7 +33,7 @@ public class RepositoryTest extends AbstractTestNGSpringContextTests {
    * Manually kill the mongo primary in you replication set.
    */
   @Test
-  public void long_running_insertion_test() throws ExecutionException, InterruptedException {
+  public void long_running_insertion_test() throws Exception {
     for (int i = 1; i <= 10000; i++) {
       SomeEntity entity = new SomeEntity();
       entity.setNumber(i);
@@ -44,6 +44,23 @@ public class RepositoryTest extends AbstractTestNGSpringContextTests {
       assertThat(saved.getId()).isNotNull();
       assertThat(repository.count()).isEqualTo(i);
 
+      sleep(new Random().nextInt(500));
+    }
+  }
+
+  @Test
+  public void long_run_findOne_Test() throws Exception {
+    SomeEntity entity = new SomeEntity();
+    entity.setNumber(4711);
+    entity.setName("Datensatz " + 4711);
+    entity.setContent("Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.");
+    String id = repository.save(entity).getId();
+
+    for (int i = 1; i <= 10000; i++) {
+      SomeEntity found = repository.findOne(id);
+
+      assertThat(found.getId()).isEqualTo(id);
+      assertThat(found.getName()).isEqualTo("Datensatz " + 4711);
       sleep(new Random().nextInt(500));
     }
   }
