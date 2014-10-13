@@ -8,6 +8,14 @@ The MongoTemplateWithRetry retries the most common database operations for three
 times. MongoDB specific exections will be catched and logged as warn. Only after the
 retry period the exeption will be thown as translated Spring database exception.
 
+#### Requirements
+
+For testing JRE 1.8 and Gradle is required.
+
+For production use, just copy the (MongoTemplateWithRetry.java) and the (MongoConfiguration.java)
+into your project. Configure the MongoConfiguration file for your needs.
+
+
 #### Starting a local MongoDB-Clusters for testing
 
 Starting and initializing of three Mongo-Nodes:
