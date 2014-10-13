@@ -1,12 +1,16 @@
 robust-mongo-config
 =============
 
-Beispielkonfiguration des Java Mongo Treibers mit Spring-Data-MongoDB um Master Slave Switches eines Mongo Replication Sets zu kompensieren.
+Example configuration of the Java MongoDB driver (<http://docs.mongodb.org/ecosystem/drivers/java/>)
+with Spring Data MongoDB (<http://projects.spring.io/spring-data-mongodb/>)
+to make the application more robust when a master slave switchover occures.
+The MongoTemplateWithRetry retries the most common database operations for three
+times. MongoDB specific exections will be catched and logged as warn. Only after the
+retry period the exeption will be thown as translated Spring database exception.
 
+## Starting a local MongoDB-Clusters for testing
 
-## Starten eines Lokalen Mongo-Clusters
-
-Starten und Initialisieren von drei Mongo-Knoten:
+Starting and initializing of three Mongo-Nodes:
 
 ```
 mkdir -p /tmp/mongodb/rs0-1 /tmp/mongodb/rs0-2 /tmp/mongodb/rs0-3
@@ -18,11 +22,11 @@ mongod --port 27003 --replSet rs0 --smallfiles --oplogSize 128 --dbpath /tmp/mon
 cat rs0.conf | mongo 127.0.0.1:27001
 ```
 
-Die ReplicaSet Konfiguration ist in der Datei [rs0.conf](./rs0.conf) hinterlegt
+The ReplicaSet Configuration is saved in the file [rs0.conf](./rs0.conf)
 
-Siehe auch http://docs.mongodb.org/manual/tutorial/deploy-replica-set/
+Have a look at <http://docs.mongodb.org/manual/tutorial/deploy-replica-set/>
 
-Überprüfen der Konfiguration:
+Check configuration:
 
 ```
 mongo 127.0.0.1:27001
@@ -30,8 +34,10 @@ rs.conf()
 rs.status()
 ```
 
-## Test ausführen
+## run tests
 
 src/test/java/de/hypoport/repository/JustARepositoryTest.java
 
-Wenn der test läuft, kann der PRIMARY Mongo Server gekillt werden. Die Daten unterbrechungsfrei weitergeschrieben. Eine INFO-Meldung wird gelogged.
+When the test is running kill the primary Mongo node. The data should be written without
+break in case of unsteady replica set state.
+An information message should be logged.
