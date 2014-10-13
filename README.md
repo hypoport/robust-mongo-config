@@ -12,7 +12,8 @@ retry period the exeption will be thown as translated Spring database exception.
 
 For testing JRE 1.8 and Gradle is required.
 
-For production use, just copy the (MongoTemplateWithRetry.java) and the (MongoConfiguration.java)
+For production use, just copy the [MongoTemplateWithRetry.java](src/main/java/de/hypoport/mongo/template/MongoTemplateWithRetry.java)
+and the [MongoConfiguration.java](src/main/java/de/hypoport/mongo/config/MongoConfiguration.java)
 into your project. Configure the MongoConfiguration file for your needs.
 
 
