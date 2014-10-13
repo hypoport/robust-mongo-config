@@ -8,7 +8,7 @@ The MongoTemplateWithRetry retries the most common database operations for three
 times. MongoDB specific exections will be catched and logged as warn. Only after the
 retry period the exeption will be thown as translated Spring database exception.
 
-## Starting a local MongoDB-Clusters for testing
+#### Starting a local MongoDB-Clusters for testing
 
 Starting and initializing of three Mongo-Nodes:
 
@@ -34,7 +34,7 @@ rs.conf()
 rs.status()
 ```
 
-## run tests
+#### runing tests
 
 src/test/java/de/hypoport/repository/JustARepositoryTest.java
 
