@@ -1,8 +1,8 @@
 robust-mongo-config
 =============
 
-Example configuration of the Java MongoDB driver (<http://docs.mongodb.org/ecosystem/drivers/java/>)
-with Spring Data MongoDB (<http://projects.spring.io/spring-data-mongodb/>)
+Example configuration of the [Java MongoDB driver](<http://docs.mongodb.org/ecosystem/drivers/java/>)
+with [Spring Data MongoDB](<http://projects.spring.io/spring-data-mongodb/>)
 to make the application more robust when a master slave switchover occures.
 The MongoTemplateWithRetry retries the most common database operations for three
 times. MongoDB specific exections will be catched and logged as warn. Only after the
